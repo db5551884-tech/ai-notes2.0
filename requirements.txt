@@ -2,5 +2,8 @@ Flask
 gunicorn
 google-generativeai
 python-dotenv
+pdfplumber
 PyPDF2
 python-pptx
+python-docx
+reportlab
