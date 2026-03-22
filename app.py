@@ -1,3 +1,8 @@
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from flask import send_file
@@ -5,7 +10,15 @@ import io
 import pdfplumber
 from docx import Document
 from pptx import Presentation
-model = genai.GenerativeModel("gemini-2.5-flash")
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+load_dotenv()
+
+genai.configure(api_key=os.getenv("API_KEY"))
+
+model = genai.GenerativeModel("gemini-1.5-flash")
 import openai
 from pptx import Presentation
 from reportlab.pdfgen import canvas
@@ -222,5 +235,5 @@ def download():
     )
 import os
 
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
