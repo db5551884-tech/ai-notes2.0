@@ -1,39 +1,27 @@
-import google.generativeai as genai
 import os
+import io
+
+from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
 
-load_dotenv()
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from flask import send_file
-import io
+import google.generativeai as genai
+
 import pdfplumber
 from docx import Document
 from pptx import Presentation
-import os
-import google.generativeai as genai
-from dotenv import load_dotenv
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
+# завантаження .env
 load_dotenv()
 
-genai.configure(api_key=os.getenv("API_KEY"))
+# API ключ
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+# модель
 model = genai.GenerativeModel("gemini-1.5-flash")
-import openai
-from pptx import Presentation
-from reportlab.pdfgen import canvas
-from flask import send_file
-import io
-import pdfplumber
-from flask import Flask, render_template, request
-import PyPDF2
-import os
-import google.generativeai as genai
-from dotenv import load_dotenv
-load_dotenv()
 
-genai.configure(api_key=os.getenv("API_KEY"))
-
+# Flask app
 app = Flask(__name__)
 
 
