@@ -123,7 +123,7 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
-@app.route("/download")
+@app.route("/download-text")
 def download():
 
     summary = request.args.get("text")
@@ -208,7 +208,7 @@ def create_pdf(text):
     buffer.seek(0)
 
     return buffer
-@app.route("/download")
+@app.route("/download-pdf")
 def download():
 
     summary = request.args.get("text")
