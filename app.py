@@ -123,31 +123,24 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
-@app.route("/download-text")
-def download():
 
+
+@app.route("/download-text")
+def download_text():
     summary = request.args.get("text")
 
     buffer = io.BytesIO()
-
     p = canvas.Canvas(buffer)
 
     y = 800
-
     for line in summary.split("<br>"):
         p.drawString(50, y, line)
         y -= 20
 
     p.save()
-
     buffer.seek(0)
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name="notes.pdf",
-        mimetype="application/pdf"
-    )
+    return send_file(buffer, as_attachment=True, download_name="summary.pdf")
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -209,8 +202,7 @@ def create_pdf(text):
 
     return buffer
 @app.route("/download-pdf")
-def download():
-
+def download_pdf():
     summary = request.args.get("text")
 
     pdf = create_pdf(summary)
@@ -221,7 +213,6 @@ def download():
         download_name="summary.pdf",
         mimetype="application/pdf"
     )
-import os
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
