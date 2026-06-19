@@ -12,42 +12,69 @@ from pptx import Presentation
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
-# завантаження .env
+# ========================
+# INIT
+# ========================
+
 load_dotenv()
 
-# API ключ
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-
-# модель
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Flask app
 app = Flask(__name__)
 
+lecture_text = ""
+
+
+# ========================
+# AI FUNCTIONS
+# ========================
 
 def summarize(text):
+    if not text:
+        return "Немає тексту для аналізу"
 
-    prompt = f"""
+    try:
+        prompt = f"""
 Зроби:
 
 1. Короткий конспект у вигляді пунктів
 2. 5 тестових питань по тексту
 
 Текст:
-{text}
+{text[:3000]}
 """
+        response = model.generate_content(prompt)
+        return response.text.replace("\n", "<br>")
 
-    response = model.generate_content(prompt)
+    except Exception as e:
+        return f"Помилка AI: {str(e)}"
 
-    return response.text.replace("\n", "<br>")
 
+def ask_ai(question, context):
+    try:
+        prompt = f"""
+Відповідай на питання по тексту:
+
+{context[:2000]}
+
+Питання: {question}
+"""
+        response = model.generate_content(prompt)
+        return response.text
+
+    except Exception as e:
+        return f"Помилка AI: {str(e)}"
+
+
+# ========================
+# FILE PROCESSING
+# ========================
 
 def extract_text(file):
-
-    filename = file.filename
+    filename = file.filename.lower()
 
     if filename.endswith(".pdf"):
-        import pdfplumber
         text = ""
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
@@ -55,12 +82,10 @@ def extract_text(file):
         return text
 
     elif filename.endswith(".docx"):
-        from docx import Document
         doc = Document(file)
         return "\n".join([p.text for p in doc.paragraphs])
 
     elif filename.endswith(".pptx"):
-        from pptx import Presentation
         ppt = Presentation(file)
         text = ""
         for slide in ppt.slides:
@@ -70,122 +95,53 @@ def extract_text(file):
         return text
 
     return ""
+
+
+# ========================
+# ROUTES
+# ========================
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     global lecture_text
 
     summary = ""
+    answer = ""
 
     if request.method == "POST":
-        print("BUTTON WORKS")
-
         text = request.form.get("text")
         file = request.files.get("file")
 
-        if file and file.filename.endswith(".pdf"):
-            import pdfplumber
-
-            with pdfplumber.open(file) as pdf:
-                pdf_text = ""
-
-                for page in pdf.pages:
-                    pdf_text += page.extract_text()
-
-            summary = summarize(pdf_text)
-            lecture_text = pdf_text
-
+        if file and file.filename != "":
+            lecture_text = extract_text(file)
+            summary = summarize(lecture_text)
 
         elif text:
-            summary = summarize(text)
             lecture_text = text
-        elif file and file.filename.endswith(".pptx"):
+            summary = summarize(text)
 
-            ppt = Presentation(file)
+    return render_template("index.html", summary=summary, answer=answer)
 
-            ppt_text = ""
-
-            for slide in ppt.slides:
-                for shape in slide.shapes:
-                 if hasattr(shape, "text"):
-                     ppt_text += shape.text + " "
-                
-            summary = summarize(ppt_text)
-            lecture_text = ppt_text
-    file = request.files.get("file")
-
-    if file and file.filename != "":
-        lecture_text = extract_text(file)
-    else:
-        lecture_text = request.form["text"]
-
-    return render_template("index.html", summary=summary)
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-
-@app.route("/download-text")
-def download_text():
-    summary = request.args.get("text")
-
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer)
-
-    y = 800
-    for line in summary.split("<br>"):
-        p.drawString(50, y, line)
-        y -= 20
-
-    p.save()
-    buffer.seek(0)
-
-    return send_file(buffer, as_attachment=True, download_name="summary.pdf")
 
 @app.route("/ask", methods=["POST"])
 def ask():
+    global lecture_text
 
     question = request.form.get("question")
 
-    context = lecture_text[:1000]
-
-    prompt = f"Answer the question based on this lecture:\n{context}\n\nQuestion: {question}"
-
-    result = summarizer(prompt, max_length=100, num_return_sequences=1)
-
-    answer = result[0]["generated_text"]
+    if lecture_text:
+        answer = ask_ai(question, lecture_text[:2000])
+    else:
+        answer = "Спочатку введи текст або завантаж файл"
 
     return render_template("index.html", summary="", answer=answer)
 
 
-def extract_text(file):
-
-    filename = file.filename
-
-    if filename.endswith(".pdf"):
-        text = ""
-        with pdfplumber.open(file) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-        return text
-
-    elif filename.endswith(".docx"):
-        doc = Document(file)
-        return "\n".join([p.text for p in doc.paragraphs])
-
-    elif filename.endswith(".pptx"):
-        ppt = Presentation(file)
-        text = ""
-        for slide in ppt.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text += shape.text + "\n"
-        return text
-
-    return ""
+# ========================
+# PDF DOWNLOAD
+# ========================
 
 def create_pdf(text):
-
     buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(buffer)
@@ -193,17 +149,21 @@ def create_pdf(text):
 
     content = []
 
-    for line in text.split("\n"):
+    for line in text.split("<br>"):
         content.append(Paragraph(line, styles["Normal"]))
 
     doc.build(content)
 
     buffer.seek(0)
-
     return buffer
+
+
 @app.route("/download-pdf")
 def download_pdf():
-    summary = request.args.get("text")
+    summary = request.args.get("text", "")
+
+    if not summary:
+        return "Немає тексту для PDF"
 
     pdf = create_pdf(summary)
 
@@ -214,5 +174,11 @@ def download_pdf():
         mimetype="application/pdf"
     )
 
+
+# ========================
+# RUN (Render friendly)
+# ========================
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

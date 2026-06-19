@@ -1,9 +1,8 @@
-Flask
+flask
 gunicorn
 google-generativeai
 python-dotenv
 pdfplumber
-PyPDF2
-python-pptx
 python-docx
+python-pptx
 reportlab
